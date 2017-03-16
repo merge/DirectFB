@@ -424,6 +424,10 @@ keyboard_get_symbol( int                             code,
      unsigned char index = KVAL(value);
      int           base  = (level == DIKSI_BASE);
 
+     /* Handle unicode characters directly */
+     if (type >= 0x0f) {
+          return DFB_KEY( UNICODE, value ^ 0xf000 );
+     }
      switch (type) {
           case KT_FN:
                if (index < 20)
@@ -1980,9 +1984,22 @@ driver_get_keymap_entry( CoreInputDevice           *device,
      int                         code = entry->code;
      unsigned short              value;
      DFBInputDeviceKeyIdentifier identifier;
+     int                         orig_mode;
 
      if (data->vt_fd < 0)
           return DFB_UNSUPPORTED;
+
+     /* save keyboard mode in order to restore it later */
+     if (ioctl( data->vt_fd, KDGKBMODE, &orig_mode ) < 0) {
+          D_PERROR( "DirectFB/Keyboard: KDGKBMODE failed!\n" );
+          return DFB_INIT;
+     }
+
+     /* switch to unicode mode to get the full keymap */
+     if (ioctl( data->vt_fd, KDSKBMODE, K_UNICODE ) < 0) {
+          D_PERROR( "DirectFB/Keyboard: K_UNICODE failed!\n" );
+          return DFB_INIT;
+     }
 
      /* fetch the base level */
      value = keyboard_read_value( driver_data, K_NORMTAB, code );
@@ -2026,6 +2043,12 @@ driver_get_keymap_entry( CoreInputDevice           *device,
      /* write shifted alternative level symbol to entry */
      entry->symbols[DIKSI_ALT_SHIFT] = keyboard_get_symbol( code, value,
                                                             DIKSI_ALT_SHIFT );
+
+     /* switch back to original mode */
+     if (ioctl( data->vt_fd, KDSKBMODE, orig_mode ) < 0) {
+          D_PERROR( "DirectFB/Keyboard: KDSKBMODE failed!\n" );
+          return DFB_INIT;
+     }
 
      return DFB_OK;
 }

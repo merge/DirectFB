@@ -91,6 +91,10 @@ keyboard_get_symbol( int                             code,
      unsigned char index = KVAL(value);
      int           base  = (level == DIKSI_BASE);
 
+     /* Handle unicode characters directly */
+     if (type >= 0x0f) {
+          return DFB_KEY( UNICODE, value ^ 0xf000 );
+     }
      switch (type) {
           case KT_FN:
                if (index < 20)
@@ -461,9 +465,16 @@ driver_get_keymap_entry( CoreInputDevice               *device,
                          void                      *driver_data,
                          DFBInputDeviceKeymapEntry *entry )
 {
+     KeyboardData               *data = (KeyboardData*) driver_data;
      int                         code = entry->code;
      unsigned short              value;
      DFBInputDeviceKeyIdentifier identifier;
+
+     /* switch to unicode mode to get the full keymap */
+     if (ioctl( data->vt_fd, KDSKBMODE, K_UNICODE ) < 0) {
+          D_PERROR( "DirectFB/Keyboard: K_UNICODE failed!\n" );
+          return DFB_INIT;
+     }
 
      /* fetch the base level */
      value = keyboard_read_value( driver_data, K_NORMTAB, code );
@@ -507,6 +518,12 @@ driver_get_keymap_entry( CoreInputDevice               *device,
      /* write shifted alternative level symbol to entry */
      entry->symbols[DIKSI_ALT_SHIFT] = keyboard_get_symbol( code, value,
                                                             DIKSI_ALT_SHIFT );
+
+     /* switch back to medium raw mode */
+     if (ioctl( data->vt_fd, KDSKBMODE, K_MEDIUMRAW ) < 0) {
+          D_PERROR( "DirectFB/Keyboard: K_MEDIUMRAW failed!\n" );
+          return DFB_INIT;
+     }
 
      return DFB_OK;
 }
