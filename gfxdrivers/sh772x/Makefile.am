@@ -22,6 +22,8 @@ INCLUDES = \
 	-I$(top_srcdir)/systems		\
 	-I$(srcdir)/kernel-module
 
+libsh7722_jpeg_la_LIBADD = \
+        $(LIBJPEG)
 
 sh7722_LTLIBRARIES = libdirectfb_sh7722.la
 
