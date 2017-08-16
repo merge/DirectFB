@@ -20,7 +20,7 @@ INCLUDES = \
 
 bin_PROGRAMS = c64xdump
 
-lib_LTLIBRARIES = libdavinci_c64x.la
+noinst_LTLIBRARIES = libdavinci_c64x.la
 
 davinci_LTLIBRARIES = libdirectfb_davinci.la
 
