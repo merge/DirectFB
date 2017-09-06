@@ -60,13 +60,86 @@ typedef struct {
      CoreInputDevice *device;
      DirectThread    *thread;
      struct tsdev    *ts;
+#ifdef TSLIB_VERSION_MT
+     struct ts_sample_mt **ts_events;
+#endif
 } tslibData;
 
 #define MAX_TSLIB_DEVICES 16
+#define TSLIB_SLOTS 1 /* only 1 supported! FIXME if MT usable in directfb */
+#define TSLIB_SAMPLES 1 /* we open blocking, so 1 */
 
 static int num_devices = 0;
 static char *device_names[MAX_TSLIB_DEVICES];
 
+#ifdef TSLIB_VERSION_MT
+static void *
+tslibEventThread( DirectThread *thread, void *driver_data )
+{
+     tslibData *data = (tslibData *) driver_data;
+     int readlen;
+     /* as soon as we have TSLIB_SLOTS > 1, we need to allocate an array here */
+     int old_x = -1;
+     int old_y = -1;
+     unsigned int old_pressure = 0;
+     int i, j;
+
+     while ((readlen = ts_read_mt( data->ts, data->ts_events, TSLIB_SLOTS, TSLIB_SAMPLES )) >= 0) {
+          DFBInputEvent evt;
+
+          direct_thread_testcancel( thread );
+
+          if (readlen < 1)
+               continue;
+
+          for (i = 0; i < readlen; i++) {
+               for (j = 0; j < TSLIB_SLOTS; j++) {
+                    if (data->ts_events[i][j].valid != 1)
+                         continue;
+
+                    if (data->ts_events[i][j].pressure) {
+                         if (data->ts_events[i][j].x != old_x) {
+                              evt.type    = DIET_AXISMOTION;
+                              evt.flags   = DIEF_AXISABS;
+                              evt.axis    = DIAI_X;
+                              evt.axisabs = data->ts_events[i][j].x;
+
+                              dfb_input_dispatch( data->device, &evt );
+
+                              old_x = data->ts_events[i][j].x;
+                         }
+
+                         if (data->ts_events[i][j].y != old_y) {
+                              evt.type    = DIET_AXISMOTION;
+                              evt.flags   = DIEF_AXISABS;
+                              evt.axis    = DIAI_Y;
+                              evt.axisabs = data->ts_events[i][j].y;
+
+                              dfb_input_dispatch( data->device, &evt );
+
+                              old_y = data->ts_events[i][j].y;
+                         }
+                    }
+
+                    if (!data->ts_events[i][j].pressure != !old_pressure) {
+                         evt.type   = data->ts_events[i][j].pressure ? DIET_BUTTONPRESS : DIET_BUTTONRELEASE;
+                         evt.flags  = DIEF_NONE;
+                         evt.button = DIBI_LEFT;
+
+                         dfb_input_dispatch( data->device, &evt );
+
+                         old_pressure = data->ts_events[i][j].pressure;
+                    }
+               }
+          }
+     }
+
+     if (readlen < 0)
+          D_ERROR( "tslib Input thread died\n" );
+
+     return NULL;
+}
+#else /* use the old ts_read() interface */
 static void *
 tslibEventThread( DirectThread *thread, void *driver_data )
 {
@@ -125,6 +198,7 @@ tslibEventThread( DirectThread *thread, void *driver_data )
 
      return NULL;
 }
+#endif /* TSLIB_VERSION_MT */
 
 static bool
 check_device( const char *device )
@@ -257,6 +331,24 @@ driver_open_device( CoreInputDevice  *device,
      data->ts     = ts;
      data->device = device;
 
+#ifdef TSLIB_VERSION_MT
+     int i;
+
+     data->ts_events = malloc(TSLIB_SAMPLES * sizeof(struct ts_sample_mt *));
+     if (!data->ts_events) {
+          ts_close(ts);
+          return D_OOM();
+     }
+
+     for (i = 0; i < TSLIB_SAMPLES; i++) {
+          data->ts_events[i] = calloc(TSLIB_SLOTS, sizeof(struct ts_sample_mt));
+          if (!data->ts_events[i]) {
+               ts_close(ts);
+               return D_OOM();
+          }
+     }
+#endif /* TSLIB_VERSION_MT */
+
      /* start input thread */
      data->thread = direct_thread_create( DTT_INPUT, tslibEventThread, data, "tslib Input" );
 
@@ -286,6 +378,17 @@ driver_close_device( void *driver_data )
      direct_thread_cancel( data->thread );
      direct_thread_join( data->thread );
      direct_thread_destroy( data->thread );
+
+#ifdef TSLIB_VERSION_MT
+     int i;
+
+     for (i = 0; i < TSLIB_SAMPLES; i++) {
+          if (data->ts_events[i])
+               free(data->ts_events[i]);
+     }
+     if (data->ts_events)
+          free(data->ts_events);
+#endif /* TSLIB_VERSION_MT */
 
      /* close device */
      ts_close( data->ts );
