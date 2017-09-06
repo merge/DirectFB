@@ -95,7 +95,7 @@ all-local: libvoodoo_fixed.a
 
 libvoodoo_fixed.a: .libs/libvoodoo.a
 	rm -f libvoodoo_fixed.a
-	${AR} cru libvoodoo_fixed.a `find . -name "*.o"`
+	${AR} cru libvoodoo_fixed.a `find . -name "*.o" | LC_ALL=C sort`
 	${RANLIB} libvoodoo_fixed.a
 	cp -pf libvoodoo_fixed.a .libs/libvoodoo.a
 

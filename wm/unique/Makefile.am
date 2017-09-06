@@ -135,7 +135,7 @@ all-local: libuniquewm_fixed.a
 
 libuniquewm_fixed.a: .libs/libuniquewm.a
 	rm -f libuniquewm_fixed.a
-	${AR} cru libuniquewm_fixed.a `find . -name "*.o" | grep -v '.libs'`
+	${AR} cru libuniquewm_fixed.a `find . -name "*.o" | grep -v '.libs' | LC_ALL=C sort`
 	${RANLIB} libuniquewm_fixed.a
 	cp -pf libuniquewm_fixed.a .libs/libuniquewm.a
 

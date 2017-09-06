@@ -94,7 +94,7 @@ all-local: libfusion_fixed.a
 
 libfusion_fixed.a: .libs/libfusion.a
 	rm -f libfusion_fixed.a
-	${AR} cru libfusion_fixed.a `find . -name "*.o" | grep -v '.libs'`
+	${AR} cru libfusion_fixed.a `find . -name "*.o" | grep -v '.libs' | LC_ALL=C sort`
 	${RANLIB} libfusion_fixed.a
 	cp -pf libfusion_fixed.a .libs/libfusion.a
 

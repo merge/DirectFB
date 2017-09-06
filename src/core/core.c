@@ -270,7 +270,7 @@ dfb_core_create( CoreDFB **ret_core )
      direct_initialize();
 
 
-     D_INFO( "DirectFB/Core: %s Application Core. ("BUILDTIME") %s%s\n",
+     D_INFO( "DirectFB/Core: %s Application Core. %s%s\n",
              FUSION_BUILD_MULTI ? "Multi" : "Single",
              DIRECT_BUILD_DEBUG ? "[ DEBUG ]" : "",
              DIRECT_BUILD_TRACE ? "[ TRACE ]" : "" );
