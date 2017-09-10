@@ -94,7 +94,7 @@ tslibEventThread( DirectThread *thread, void *driver_data )
 
           for (i = 0; i < readlen; i++) {
                for (j = 0; j < TSLIB_SLOTS; j++) {
-                    if (data->ts_events[i][j].valid != 1)
+                    if (data->ts_events[i][j].valid < 1)
                          continue;
 
                     if (data->ts_events[i][j].pressure) {
